@@ -1,0 +1,4 @@
+interface:
+  display_name: "External Skill Manager"
+  short_description: "Install and maintain GitHub-backed Codex skills"
+  default_prompt: "Use $external-skill-manager to install a GitHub skill and keep it updated."
