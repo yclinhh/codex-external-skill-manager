@@ -47,6 +47,48 @@ irm https://raw.githubusercontent.com/yclinhh/codex-external-skill-manager/main/
 
 安装后重启 Codex。
 
+## Git 代理排查
+
+如果 `install.ps1` 能下载，但在 `git clone` 时出现类似错误：
+
+```text
+OpenSSL SSL_connect: SSL_ERROR_SYSCALL in connection to github.com:443
+```
+
+通常是 Git 没有走当前代理，或者还保留着旧代理端口。先查看 Git 配置：
+
+```powershell
+git config --global --list
+```
+
+如果你使用 V2RayN，并且 HTTP 代理端口是 `10808`，推荐设置成通用 Git 代理：
+
+```powershell
+git config --global --unset http.https://github.com.proxy
+git config --global http.proxy http://127.0.0.1:10808
+git config --global https.proxy http://127.0.0.1:10808
+```
+
+如果你只想让 GitHub 走这个代理：
+
+```powershell
+git config --global http.https://github.com.proxy http://127.0.0.1:10808
+```
+
+测试 Git 是否已经能访问 GitHub：
+
+```powershell
+git ls-remote https://github.com/yclinhh/codex-external-skill-manager.git
+```
+
+如果前一次安装失败留下了不完整目录，先删除后再重新安装：
+
+```powershell
+$repo = "$env:USERPROFILE\Documents\Codex\external-skills\codex-external-skill-manager"
+if (Test-Path $repo) { Remove-Item -LiteralPath $repo -Recurse -Force }
+irm https://raw.githubusercontent.com/yclinhh/codex-external-skill-manager/main/install.ps1 | iex
+```
+
 ## 自定义安装位置
 
 默认外部 Git 仓库目录是：
