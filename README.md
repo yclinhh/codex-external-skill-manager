@@ -27,27 +27,48 @@
 - 新增外部仓库后，统一更新脚本会自动扫描并更新。
 - Windows 计划任务可以每天自动更新，并生成状态报告。
 
-## 安装这个 skill
+## 首次安装：Bootstrap
 
-推荐把这个仓库也作为一个外部 skill 管理。
+第一次安装时还没有 `$external-skill-manager`，所以需要先运行一次 bootstrap 脚本。安装后，这个仓库会像其他外部 skills 一样放在 Git 目录里，并通过 junction 暴露给 Codex。
+
+推荐先下载、查看，再执行：
 
 ```powershell
-$codexRoot = Join-Path $env:USERPROFILE "Documents\Codex"
-$externalRoot = Join-Path $codexRoot "external-skills"
-$skillsRoot = Join-Path $env:USERPROFILE ".codex\skills"
+irm https://raw.githubusercontent.com/yclinhh/codex-external-skill-manager/main/install.ps1 -OutFile install.ps1
+notepad .\install.ps1
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
 
-New-Item -ItemType Directory -Force $externalRoot
-New-Item -ItemType Directory -Force $skillsRoot
+如果你信任脚本，也可以一行安装：
 
-git clone https://github.com/yclinhh/codex-external-skill-manager.git `
-  (Join-Path $externalRoot "codex-external-skill-manager")
-
-New-Item -ItemType Junction `
-  -Path (Join-Path $skillsRoot "external-skill-manager") `
-  -Target (Join-Path $externalRoot "codex-external-skill-manager\skills\external-skill-manager")
+```powershell
+irm https://raw.githubusercontent.com/yclinhh/codex-external-skill-manager/main/install.ps1 | iex
 ```
 
 安装后重启 Codex。
+
+## 自定义安装位置
+
+默认外部 Git 仓库目录是：
+
+```text
+%USERPROFILE%\Documents\Codex\external-skills
+```
+
+如果你想把外部 skills 放到其他位置，例如 D 盘：
+
+```powershell
+irm https://raw.githubusercontent.com/yclinhh/codex-external-skill-manager/main/install.ps1 -OutFile install.ps1
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -ExternalSkillsRoot "D:\CodexExternalSkills"
+```
+
+安装脚本会写入：
+
+```text
+%USERPROFILE%\Documents\Codex\external-skills.config.json
+```
+
+后续 `$external-skill-manager` 和统一更新脚本都会从这个配置读取外部 Git 仓库目录。
 
 ## 第一次使用
 
@@ -112,27 +133,10 @@ git pull --ff-only
 
 如果有 skill 更新或更新失败，脚本会弹出 Windows 提示；如果全部已经是最新，则只写报告，不打扰你。
 
-## 自定义 external-skills 路径
-
-创建或修改：
-
-```text
-%USERPROFILE%\Documents\Codex\external-skills.config.json
-```
-
-示例：
-
-```json
-{
-  "externalSkillsRoot": "D:\\CodexExternalSkills"
-}
-```
-
-相对路径会从 `%USERPROFILE%\Documents\Codex` 解析；也可以使用 `%USERPROFILE%` 这类环境变量。
-
 ## 仓库结构
 
 ```text
+install.ps1
 skills/
   external-skill-manager/
     SKILL.md
