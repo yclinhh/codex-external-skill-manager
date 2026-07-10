@@ -53,9 +53,21 @@ function Invoke-GitCommand {
         [Parameter(Mandatory = $true)] [string[]] $Arguments
     )
 
-    $output = & git -C $Repo @Arguments 2>&1
+    $previousErrorActionPreference = $ErrorActionPreference
+    $safeRepo = $Repo -replace "\\", "/"
+    try {
+        # Git writes normal progress such as "From https://..." to stderr.
+        # Capture it without letting PowerShell turn stderr into a terminating error.
+        $ErrorActionPreference = "Continue"
+        $output = & git -c "safe.directory=$safeRepo" -C $Repo @Arguments 2>&1
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
     return [pscustomobject]@{
-        ExitCode = $LASTEXITCODE
+        ExitCode = $exitCode
         Output = ($output | ForEach-Object { $_.ToString() }) -join "`n"
     }
 }
@@ -109,6 +121,8 @@ try {
         $after = ""
         $branch = ""
         $remote = ""
+        $failedCommand = ""
+        $fetchOutput = ""
         $pullOutput = ""
 
         try {
@@ -117,14 +131,17 @@ try {
             $before = Get-GitText -Repo $repo -Arguments @("rev-parse", "--short", "HEAD")
 
             $fetch = Invoke-GitCommand -Repo $repo -Arguments @("fetch", "--prune")
+            $fetchOutput = $fetch.Output.Trim()
             if ($fetch.ExitCode -ne 0) {
-                throw "git fetch --prune failed.`n$($fetch.Output)"
+                $failedCommand = "git fetch --prune"
+                throw "git fetch --prune failed with exit code $($fetch.ExitCode)."
             }
 
             $pull = Invoke-GitCommand -Repo $repo -Arguments @("pull", "--ff-only")
             $pullOutput = $pull.Output.Trim()
             if ($pull.ExitCode -ne 0) {
-                throw "git pull --ff-only failed.`n$pullOutput"
+                $failedCommand = "git pull --ff-only"
+                throw "git pull --ff-only failed with exit code $($pull.ExitCode)."
             }
 
             $after = Get-GitText -Repo $repo -Arguments @("rev-parse", "--short", "HEAD")
@@ -153,6 +170,8 @@ try {
             After = $after
             Status = $status
             Message = $message
+            FailedCommand = $failedCommand
+            FetchOutput = $fetchOutput
             PullOutput = $pullOutput
         }
     }
@@ -167,6 +186,8 @@ catch {
         After = ""
         Status = "Failed"
         Message = $_.Exception.Message.Trim()
+        FailedCommand = "external-skills scan"
+        FetchOutput = ""
         PullOutput = ""
     }
 }
@@ -210,7 +231,22 @@ foreach ($result in $results) {
     $report.Add("- Status: $($result.Status)")
     $report.Add("- Message: $($result.Message)")
 
+    if ($result.FailedCommand) {
+        $report.Add(('- Failed command: `{0}`' -f $result.FailedCommand))
+    }
+
+    if ($result.FetchOutput) {
+        $report.Add("")
+        $report.Add("#### git fetch --prune output")
+        $report.Add("")
+        $report.Add('```text')
+        $report.Add($result.FetchOutput)
+        $report.Add('```')
+    }
+
     if ($result.PullOutput) {
+        $report.Add("")
+        $report.Add("#### git pull --ff-only output")
         $report.Add("")
         $report.Add('```text')
         $report.Add($result.PullOutput)
